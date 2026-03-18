@@ -175,8 +175,10 @@ const Dashboard = () => {
         <div className="flex items-center gap-6">
           {/* --- NEW DOWNLOAD BUTTON --- */}
           <a 
-            href="/mlhub-edge-mac-arm64.dmg" 
+            href="https://github.com/NamanLimani/ML-HUB/releases/download/dmg/MLHub.Edge-1.0.0-arm64.dmg" 
             download="MLHub_Edge_Installer.dmg"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg transition-colors border border-blue-200 text-sm"
           >
             <Download size={16} />
