@@ -33,7 +33,7 @@ function App() {
       formData.append('username', credentials.email);
       formData.append('password', credentials.password);
 
-      const response = await fetch('http://127.0.0.1:8000/login', {
+      const response = await fetch('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: formData

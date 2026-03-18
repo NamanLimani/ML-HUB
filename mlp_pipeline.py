@@ -17,8 +17,13 @@ import app.federated_pb2 as federated_pb2
 import app.federated_pb2_grpc as federated_pb2_grpc
 from app.ml_models import SimpleMLP
 
-HUB_URL = "http://host.docker.internal:8000"
-GRPC_URL = "host.docker.internal:50051"
+
+# HUB_URL = "http://host.docker.internal:8000"
+# GRPC_URL = "host.docker.internal:50051"
+
+# --- UPDATED CLOUD URLS ---
+HUB_URL = "https://numerous-coyote-naman-limani-8961fadf.koyeb.app"
+GRPC_URL = "numerous-coyote-naman-limani-8961fadf.koyeb.app:443"
 
 # --- 1. THE TEST/EVALUATION FUNCTION ---
 def test_mlp_model(local_model):
@@ -197,7 +202,11 @@ def run_mlp_pipeline():
 
     # 3. gRPC Download
     print(f"\n[3/6] Streaming global MLP model from {GRPC_URL}...")
-    channel = grpc.insecure_channel(GRPC_URL)
+    
+    # --- UPDATED CLOUD SECURITY ---
+    credentials = grpc.ssl_channel_credentials()
+    channel = grpc.secure_channel(GRPC_URL, credentials)
+    
     stub = federated_pb2_grpc.ModelTransferStub(channel)
     file_bytes = io.BytesIO()
     

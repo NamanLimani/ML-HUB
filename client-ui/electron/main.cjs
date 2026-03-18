@@ -1,31 +1,54 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const { spawn } = require('child_process'); // NEW: This lets Electron run Terminal commands!
 
 let mainWindow;
+let pythonServerProcess = null; // We will store the background process here
+
+// --- THE INVISIBLE IT GUY ---
+function startPythonServer() {
+  // We need to tell Electron exactly where the Python script is.
+  // Since you run this from the client-ui folder, we point up one level to the root.
+  const scriptPath = path.join(__dirname, '../../edge_server.py');
+  
+  console.log("Starting background Edge Server at:", scriptPath);
+  
+  // This is the equivalent of typing 'python edge_server.py' in the terminal
+  pythonServerProcess = spawn('python', [scriptPath]);
+
+  // Capture the Python logs so we can see them in the Electron console if needed
+  pythonServerProcess.stdout.on('data', (data) => {
+    console.log(`[Edge Server]: ${data.toString()}`);
+  });
+
+  pythonServerProcess.stderr.on('data', (data) => {
+    console.error(`[Edge Error]: ${data.toString()}`);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1000,
     height: 700,
     webPreferences: {
-      // This preload script acts as the secure bridge between React and Electron
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
 
-  // --- THE FIX: Load Localhost for Dev, Load HTML for Production ---
   if (app.isPackaged) {
-    // If it's the final compiled app (.dmg), load the physical HTML file
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   } else {
-    // If we are developing locally (npm run electron), use Vite's localhost
     mainWindow.loadURL('http://localhost:5174');
   }
 }
 
 app.whenReady().then(() => {
+  // 1. Start the hidden Python server FIRST
+  startPythonServer();
+  
+  // 2. Then open the React UI
   createWindow();
 
   app.on('activate', () => {
@@ -33,20 +56,26 @@ app.whenReady().then(() => {
   });
 });
 
+// --- CRITICAL: KILL PYTHON WHEN THE APP CLOSES ---
 app.on('window-all-closed', () => {
+  if (pythonServerProcess) {
+    console.log("Shutting down background Edge Server...");
+    pythonServerProcess.kill(); // Kills the Python process so it doesn't become a zombie!
+  }
   if (process.platform !== 'darwin') app.quit();
 });
 
-// --- THE MAGIC NATIVE API ---
-// React will call this to open the Mac Finder / Windows Explorer window
+app.on('quit', () => {
+  if (pythonServerProcess) {
+    pythonServerProcess.kill();
+  }
+});
+
+// Native Mac Folder Picker
 ipcMain.handle('dialog:selectFolder', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory'] // We only want the user to select a folder!
+    properties: ['openDirectory']
   });
-  
-  if (result.canceled) {
-    return null;
-  } else {
-    return result.filePaths[0]; // Return the absolute path
-  }
+  if (result.canceled) return null;
+  return result.filePaths[0]; 
 });
