@@ -10,4 +10,4 @@ celery -A app.worker.celery_app worker --loglevel=info &
 
 # 3. Start the FastAPI Hub in the foreground (This keeps the container alive)
 # Koyeb dynamically assigns a $PORT variable, so we must bind to it
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
+uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1

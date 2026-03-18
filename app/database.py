@@ -14,7 +14,13 @@ if not SQLALCHEMY_Database_URL:
 if SQLALCHEMY_Database_URL.startswith("postgres://"):
     SQLALCHEMY_Database_URL = SQLALCHEMY_Database_URL.replace("postgres://", "postgresql://", 1)
 
-engine = create_engine(SQLALCHEMY_Database_URL)
+# ---  Add connection pooling for serverless databases ---
+engine = create_engine(
+    SQLALCHEMY_Database_URL,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=True # This checks if the Neon connection is still alive before using it
+)
 
 SessionLocal = sessionmaker(autocommit = False , autoflush= False , bind=engine)
 
