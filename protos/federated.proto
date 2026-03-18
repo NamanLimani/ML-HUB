@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package federated;
+
+// The Service defines the remote functions the Edge Node can call on the Hub
+service ModelTransfer {
+    // 1. Download: Edge asks for a job, Hub streams back the model in chunks
+    rpc DownloadModel (DownloadRequest) returns (stream ModelChunk);
+    
+    // 2. Upload: Edge streams its local model up in chunks, Hub replies when done
+    rpc UploadModel (stream ModelChunk) returns (UploadResponse);
+}
+
+// The exact structure of the Download Request
+message DownloadRequest {
+    int32 job_id = 1;
+}
+
+// The exact structure of the Data Chunks flowing through the pipe
+message ModelChunk {
+    int32 job_id = 1;
+    int32 node_id = 2;     // So the Hub knows who is uploading
+    bytes chunk_data = 3;  // The actual raw binary pieces of the .pt file
+}
+
+// The Hub's final response after successfully receiving all chunks
+message UploadResponse {
+    string message = 1;
+    bool success = 2;
+}

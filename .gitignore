@@ -1,0 +1,21 @@
+# Local environments and secrets
+venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+
+# Ignore your personal notes
+journal.md
+
+# Ignore local database and downloaded weights
+federhub.db
+app/uploaded_weights/
+app/model_registry/
+
+# Ignore large compiled Desktop Apps and Node Modules
+client-ui/release/
+client-ui/dist/
+frontend/public/*.dmg
+client-ui/node_modules/
+frontend/node_modules/

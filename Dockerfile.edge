@@ -1,0 +1,26 @@
+# 1. Use a lightweight Python base image
+FROM python:3.10-slim
+
+# 2. Set the working directory inside the container
+WORKDIR /workspace
+
+# 3. Copy the requirements file and install dependencies
+COPY requirements_edge.txt .
+
+# 4. Install the CPU-only version of PyTorch to save massive amounts of storage space
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements_edge.txt
+
+# 5. Copy the interactive client scripts
+COPY cnn_pipeline.py .
+COPY mlp_pipeline.py .
+
+# 6. Copy the necessary Hub files (Models and gRPC blueprints)
+COPY app/ml_models.py app/
+COPY app/federated_pb2.py app/
+COPY app/federated_pb2_grpc.py app/
+
+# 7. Tell Python that the 'app' folder is a package
+RUN touch app/__init__.py 
+
+# 8. Drop the user into a terminal inside the container so they can choose which pipeline to run
+CMD ["/bin/bash"]
