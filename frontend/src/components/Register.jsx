@@ -17,7 +17,7 @@ const Register = () => {
   useEffect(() => {
     const fetchOrgs = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/organisations/');
+        const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/organisations/');
         setOrganisations(response.data);
         
         // If there are orgs, set the default selection to the first one
@@ -44,7 +44,7 @@ const Register = () => {
         organisation_id: parseInt(orgId)
       };
 
-      await axios.post('http://127.0.0.1:8000/users/', payload);
+      await axios.post('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/users/', payload);
       
       setSuccess(true);
       setTimeout(() => {

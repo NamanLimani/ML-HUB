@@ -38,7 +38,7 @@ const Dashboard = () => {
   // --- API CALLS ---
   const fetchUserProfile = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/users/me', {
+      const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/users/me', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCurrentUser(response.data);
@@ -49,7 +49,7 @@ const Dashboard = () => {
 
   const fetchJobs = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/training-jobs/', {
+      const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/training-jobs/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJobs(response.data);
@@ -60,7 +60,7 @@ const Dashboard = () => {
 
   const fetchOrganisations = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/organisations/', {
+      const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/organisations/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setOrganisations(response.data);
@@ -71,7 +71,7 @@ const Dashboard = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/users/', {
+      const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/users/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUsers(response.data);
@@ -82,7 +82,7 @@ const Dashboard = () => {
 
   const fetchAuditLogs = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/metrics/history', {
+      const response = await axios.get('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/metrics/history', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAuditLogs(response.data);
@@ -99,7 +99,7 @@ const Dashboard = () => {
 
   const startJob = async (jobId) => {
     try {
-      await axios.post(`http://127.0.0.1:8000/training-jobs/${jobId}/start`, null, {
+      await axios.post(`https://numerous-coyote-naman-limani-8961fadf.koyeb.app/training-jobs/${jobId}/start`, null, {
         headers: { Authorization: `Bearer ${token}` }
       });
       alert(`Job ${jobId} successfully queued!`);
@@ -112,7 +112,7 @@ const Dashboard = () => {
   const handleCreateOrg = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://127.0.0.1:8000/organisations/', 
+      await axios.post('https://numerous-coyote-naman-limani-8961fadf.koyeb.app/organisations/', 
         { name: newOrgName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -127,7 +127,7 @@ const Dashboard = () => {
   const handleDeleteUser = async (userId, userEmail) => {
     if (!window.confirm(`Are you sure you want to permanently delete ${userEmail}?`)) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/users/${userId}`, {
+      await axios.delete(`https://numerous-coyote-naman-limani-8961fadf.koyeb.app/users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchUsers();
@@ -140,7 +140,7 @@ const Dashboard = () => {
   const handleDeleteJob = async (jobId, jobName) => {
     if (!window.confirm(`Are you sure you want to permanently delete the job "${jobName}"?`)) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/training-jobs/${jobId}`, {
+      await axios.delete(`https://numerous-coyote-naman-limani-8961fadf.koyeb.app/training-jobs/${jobId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchJobs();
@@ -152,7 +152,7 @@ const Dashboard = () => {
   const handleDeleteOrg = async (orgId, orgName) => {
     if (!window.confirm(`Are you sure you want to permanently delete the organization "${orgName}"?`)) return;
     try {
-      await axios.delete(`http://127.0.0.1:8000/organisations/${orgId}`, {
+      await axios.delete(`https://numerous-coyote-naman-limani-8961fadf.koyeb.app/organisations/${orgId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchOrganisations();

@@ -25,7 +25,7 @@ useEffect(() => {
     const fetchHistory = async () => {
       try {
         const token = localStorage.getItem('hub_jwt');
-        const response = await axios.get(`http://127.0.0.1:8000/training-jobs/${jobId}/telemetry`, {
+        const response = await axios.get(`https://numerous-coyote-naman-limani-8961fadf.koyeb.app/training-jobs/${jobId}/telemetry`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         // Populate the chart with past data
@@ -40,7 +40,7 @@ useEffect(() => {
     fetchHistory();
 
     // 2. Open the WebSocket connection for new, live data
-    const ws = new WebSocket(`ws://localhost:8000/ws/telemetry/${jobId}`);
+    const ws = new WebSocket(`wss://numerous-coyote-naman-limani-8961fadf.koyeb.app/ws/telemetry/${jobId}`);
 
     ws.onopen = () => {
       setStatus('Listening for Edge Node metrics...');
