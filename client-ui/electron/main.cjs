@@ -7,16 +7,20 @@ let pythonServerProcess = null; // We will store the background process here
 
 // --- THE INVISIBLE IT GUY ---
 function startPythonServer() {
-  // We need to tell Electron exactly where the Python script is.
-  // Since you run this from the client-ui folder, we point up one level to the root.
-  const scriptPath = path.join(__dirname, '../../edge_server.py');
+  let scriptPath;
+  
+  if (app.isPackaged) {
+    // In the .dmg, Electron puts extraResources into the process.resourcesPath
+    scriptPath = path.join(process.resourcesPath, 'engine', 'edge_server.py');
+  } else {
+    // In local dev, look up two levels to the root ML-HUB folder
+    scriptPath = path.join(__dirname, '../../edge_server.py');
+  }
   
   console.log("Starting background Edge Server at:", scriptPath);
   
-  // This is the equivalent of typing 'python edge_server.py' in the terminal
   pythonServerProcess = spawn('python', [scriptPath]);
 
-  // Capture the Python logs so we can see them in the Electron console if needed
   pythonServerProcess.stdout.on('data', (data) => {
     console.log(`[Edge Server]: ${data.toString()}`);
   });
