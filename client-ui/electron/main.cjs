@@ -10,16 +10,17 @@ function startPythonServer() {
   let scriptPath;
   
   if (app.isPackaged) {
-    // In the .dmg, Electron puts extraResources into the process.resourcesPath
-    scriptPath = path.join(process.resourcesPath, 'engine', 'edge_server.py');
+    // Point to the compiled PyInstaller Unix Executable inside the .dmg
+    scriptPath = path.join(process.resourcesPath, 'engine', 'edge_engine', 'edge_engine');
   } else {
-    // In local dev, look up two levels to the root ML-HUB folder
-    scriptPath = path.join(__dirname, '../../edge_server.py');
+    // Point to the compiled PyInstaller Unix Executable for local testing
+    scriptPath = path.join(__dirname, '../engine/edge_engine/edge_engine');
   }
   
   console.log("Starting background Edge Server at:", scriptPath);
   
-  pythonServerProcess = spawn('python3', [scriptPath]);
+  // We NO LONGER use 'python3'. We execute the binary directly!
+  pythonServerProcess = spawn(scriptPath);
 
   pythonServerProcess.stdout.on('data', (data) => {
     console.log(`[Edge Server]: ${data.toString()}`);
