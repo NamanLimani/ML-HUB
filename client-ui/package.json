@@ -31,14 +31,8 @@
       "electron/**/*"
     ],
     "extraResources" :[{
-      "from" : "../",
-      "to" : "engine",
-      "filter" : [
-        "edge_server.py",
-        "cnn_pipeline.py",
-        "mlp_pipeline.py",
-        "app/**/*"
-      ]
+      "from" : "engine/edge_engine",
+      "to" : "engine/edge_engine"
     }]
   },
   "dependencies": {
