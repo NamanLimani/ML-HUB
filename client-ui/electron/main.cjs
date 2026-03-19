@@ -19,7 +19,7 @@ function startPythonServer() {
   
   console.log("Starting background Edge Server at:", scriptPath);
   
-  pythonServerProcess = spawn('python', [scriptPath]);
+  pythonServerProcess = spawn('python3', [scriptPath]);
 
   pythonServerProcess.stdout.on('data', (data) => {
     console.log(`[Edge Server]: ${data.toString()}`);
