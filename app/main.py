@@ -8,12 +8,12 @@ import os
 import json
 import redis
 import redis.asyncio as aioredis
+import ssl
 
 from .database import base, get_db, engine
 from . import models, schemas, crud, auth 
 from .worker import start_federated_training, celery_app
 
-# Initialize Database
 models.base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -22,12 +22,11 @@ app = FastAPI(
     version='1.0.0'
 )
 
-# --- Configure CORS ---
 origins = [
-    "http://localhost:5173",    # Admin Hub UI
+    "http://localhost:5173",    
     "http://127.0.0.1:5173",
-    "http://localhost:5174",    # NEW: Edge Client UI
-    "http://127.0.0.1:5174",    # NEW: Edge Client UI
+    "http://localhost:5174",    
+    "http://127.0.0.1:5174",    
     "https://ml-hub-hard.vercel.app"
 ]
 
@@ -41,19 +40,16 @@ app.add_middleware(
 
 def get_redis_client(is_async=False):
     raw_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    
-    # Strip any trailing parameters so the redis library doesn't panic
     url = raw_url.split("?")[0]
     
     kwargs = {"decode_responses": True}
     if url.startswith("rediss://"):
-        kwargs["ssl_cert_reqs"] = "none" # MUST be a string for aioredis!
-    
+        kwargs["ssl_cert_reqs"] = "none" # <-- CRITICAL: Must be the string "none"
+        
     if is_async:
         return aioredis.from_url(url, **kwargs)
     return redis.from_url(url, **kwargs)
 
-# --- SYSTEM HEALTH ROUTES ---
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Decentralized ML Hub API"}
@@ -66,10 +62,8 @@ def health_check():
 def test_db(db: Session = Depends(get_db)):
     return {"status": "connected", "message": "Successfully connected to PostgreSQL"}
 
-# --- AUTHENTICATION & IDENTITY ---
 @app.post("/login", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Authenticate a user and return a JWT access token."""
     user = crud.authenticate_user(db, email=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(
@@ -82,10 +76,8 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 @app.get("/users/me", response_model=schemas.UserResponse)
 def get_current_user_profile(current_user: models.User = Depends(auth.get_current_user)):
-    """Returns the profile of the currently authenticated user based on their JWT."""
     return current_user
 
-# --- CREATE ROUTES (POST) ---
 @app.post("/organisations/", response_model=schemas.OrganisationResponse)
 def create_organisation(org: schemas.OrganisationCreate, db: Session = Depends(get_db)):
     return crud.create_organisation(db=db, org=org)
@@ -127,16 +119,12 @@ def receive_telemetry(
     job_id: int, 
     payload: dict, 
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user) # <--- The JWT tells us who this is!
+    current_user: models.User = Depends(auth.get_current_user) 
 ):
-    """
-    Saves live training metrics to PostgreSQL AND publishes them to Redis.
-    """
     try:
-        # 1. Save to PostgreSQL for permanent history (NOW WITH USER ID)
         new_metric = models.JobMetrics(
             job_id=job_id,
-            user_id=current_user.id, # <--- NEW: Save the identity of the uploader!
+            user_id=current_user.id, 
             round_number=payload.get("round"),
             metric_type="local_loss",
             value=str(payload.get("loss"))
@@ -146,7 +134,6 @@ def receive_telemetry(
 
         payload["client_email"] = current_user.email
 
-        # 2. Publish to Redis for the live WebSocket stream
         r = get_redis_client(is_async=False)
         r.publish(f"telemetry_job_{job_id}", json.dumps(payload))
         
@@ -154,7 +141,6 @@ def receive_telemetry(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- READ ROUTES (GET) ---
 @app.get("/organisations/", response_model=List[schemas.OrganisationResponse])
 def read_organisations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return crud.get_organisations(db, skip=skip, limit=limit)
@@ -168,7 +154,6 @@ def read_single_organisation(org_id: int, db: Session = Depends(get_db)):
 
 @app.get("/users/", response_model=List[schemas.UserResponse])
 def get_all_users(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    """Admin-only endpoint to fetch all registered edge nodes/clients."""
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Not authorized. Admins only.")
     return db.query(models.User).all()
@@ -207,10 +192,8 @@ def get_telemetry_history(job_id: int, db: Session = Depends(get_db), current_us
             history.append({
                 "round": f"Round {m.round_number}", 
                 "loss": float(m.value),
-                # --- NEW: Pull the email from the database relationship ---
                 "client_email": m.user.email if m.user else "Unknown Node"
             })
-    return history
     return history
 
 @app.get("/tasks/{task_id}")
@@ -223,11 +206,6 @@ def get_audit_history(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    """
-    Returns the training upload history.
-    Admins see all network history. Clients only see their own uploads.
-    """
-    # Create a database query joining the Metrics, the User who sent them, and the Job
     query = db.query(
         models.JobMetrics, 
         models.User.email, 
@@ -238,14 +216,11 @@ def get_audit_history(
         models.TrainingJob, models.JobMetrics.job_id == models.TrainingJob.id
     )
     
-    # SECURITY: If the user is NOT an admin, filter out everyone else's data
     if not current_user.is_admin:
         query = query.filter(models.JobMetrics.user_id == current_user.id)
         
-    # Sort by newest first
     metrics = query.order_by(models.JobMetrics.timestamp.desc()).all()
     
-    # Format the data for React
     history = []
     for metric, user_email, job_name in metrics:
         history.append({
@@ -259,7 +234,6 @@ def get_audit_history(
         
     return history
 
-# --- UPDATE ROUTES (PUT) ---
 @app.put("/organisations/{org_id}", response_model=schemas.OrganisationResponse)
 def update_organisation(org_id: int, org_update: schemas.OrganisationUpdate, db: Session = Depends(get_db)):
     db_org = crud.update_organisation(db, org_id=org_id, org_update=org_update)
@@ -281,7 +255,6 @@ def update_training_job(job_id: int, job_update: schemas.TrainingJobUpdate, db: 
         raise HTTPException(status_code=404, detail="Training Job not found")
     return db_job
 
-# --- SECURE DELETE ROUTES (ADMIN ONLY) ---
 @app.delete("/organisations/{org_id}")
 def delete_organisation(org_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if not current_user.is_admin:
@@ -332,16 +305,15 @@ def delete_training_job(job_id: int, db: Session = Depends(get_db), current_user
     db.commit()
     return {"status": "Training job deleted successfully."}
 
-# --- WEBSOCKET TELEMETRY ---
 @app.websocket("/ws/telemetry/{job_id}")
 async def websocket_telemetry(websocket: WebSocket, job_id: int):
     await websocket.accept()
     redis_client = get_redis_client(is_async=True)
     pubsub = redis_client.pubsub()
     channel_name = f"telemetry_job_{job_id}"
-    await pubsub.subscribe(channel_name)
-
+    
     try:
+        await pubsub.subscribe(channel_name)
         async for message in pubsub.listen():
             if message["type"] == "message":
                 await websocket.send_text(message["data"])
