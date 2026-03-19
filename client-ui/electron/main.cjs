@@ -19,8 +19,14 @@ function startPythonServer() {
   
   console.log("Starting background Edge Server at:", scriptPath);
   
-  // We NO LONGER use 'python3'. We execute the binary directly!
-  pythonServerProcess = spawn(scriptPath);
+  // --- PRODUCTION FIX: Universal macOS Docker Paths ---
+  // This ensures the packaged app can find Docker on ANY hospital's Mac.
+  const customEnv = Object.assign({}, process.env, {
+    PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin`
+  });
+  
+  // We execute the binary directly and pass it the universal environment mapping!
+  pythonServerProcess = spawn(scriptPath, [], { env: customEnv });
 
   pythonServerProcess.stdout.on('data', (data) => {
     console.log(`[Edge Server]: ${data.toString()}`);
