@@ -39,6 +39,15 @@ app.add_middleware(
     allow_headers=["*"]  
 )
 
+def get_redis_client(is_async=False):
+    url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    # If using rediss:// (Upstash), we must pass ssl_cert_reqs as None (the code version of CERT_NONE)
+    kwargs = {"ssl_cert_reqs": None} if url.startswith("rediss://") else {}
+    
+    if is_async:
+        return aioredis.from_url(url, decode_responses=True, **kwargs)
+    return redis.from_url(url, decode_responses=True, **kwargs)
+
 # --- SYSTEM HEALTH ROUTES ---
 @app.get("/")
 def read_root():
@@ -133,8 +142,7 @@ def receive_telemetry(
         payload["client_email"] = current_user.email
 
         # 2. Publish to Redis for the live WebSocket stream
-        REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-        r = redis.from_url(REDIS_URL, decode_responses=True)
+        r = get_redis_client(is_async=False)
         r.publish(f"telemetry_job_{job_id}", json.dumps(payload))
         
         return {"status": "Telemetry saved and broadcasted"}
@@ -323,8 +331,7 @@ def delete_training_job(job_id: int, db: Session = Depends(get_db), current_user
 @app.websocket("/ws/telemetry/{job_id}")
 async def websocket_telemetry(websocket: WebSocket, job_id: int):
     await websocket.accept()
-    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    redis_client = aioredis.from_url(REDIS_URL, decode_responses=True)
+    redis_client = get_redis_client(is_async=True)
     pubsub = redis_client.pubsub()
     channel_name = f"telemetry_job_{job_id}"
     await pubsub.subscribe(channel_name)

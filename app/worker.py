@@ -6,6 +6,7 @@ from .ml_models import SimpleCNN , SimpleMLP
 import json
 import redis
 import time
+import ssl
 
 # --- NEW: Fetch Cloud Redis or Fallback to Local ---
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -38,10 +39,15 @@ def start_federated_training(job_id: int, model_template: str):
     """
     Simulates a long-running federated training cycle.
     """
-    redis_client = redis.from_url(REDIS_URL)
+    # --- NEW SECURE CONNECTION LOGIC ---
+    url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    kwargs = {"ssl_cert_reqs": None} if url.startswith("rediss://") else {}
+    redis_client = redis.from_url(url, **kwargs)
+    
     channel_name = f"telemetry_job_{job_id}"
 
     print(f"\n[CELERY WORKER] -> Initializing federated training for Job ID: {job_id}")
+    # Now this will work in the cloud!
     redis_client.publish(channel_name , json.dumps({"status" : "Initializing" , "message" : "Starting Job"}))
     
     # Dynamically handle your two distinct model architectures!
