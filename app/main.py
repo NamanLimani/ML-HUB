@@ -40,13 +40,18 @@ app.add_middleware(
 )
 
 def get_redis_client(is_async=False):
-    url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    # If using rediss:// (Upstash), we must pass ssl_cert_reqs as None (the code version of CERT_NONE)
-    kwargs = {"ssl_cert_reqs": None} if url.startswith("rediss://") else {}
+    raw_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    
+    # Strip any trailing parameters so the redis library doesn't panic
+    url = raw_url.split("?")[0]
+    
+    kwargs = {"decode_responses": True}
+    if url.startswith("rediss://"):
+        kwargs["ssl_cert_reqs"] = "none" # MUST be a string for aioredis!
     
     if is_async:
-        return aioredis.from_url(url, decode_responses=True, **kwargs)
-    return redis.from_url(url, decode_responses=True, **kwargs)
+        return aioredis.from_url(url, **kwargs)
+    return redis.from_url(url, **kwargs)
 
 # --- SYSTEM HEALTH ROUTES ---
 @app.get("/")

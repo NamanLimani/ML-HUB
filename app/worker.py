@@ -39,9 +39,10 @@ def start_federated_training(job_id: int, model_template: str):
     """
     Simulates a long-running federated training cycle.
     """
-    # --- NEW SECURE CONNECTION LOGIC ---
-    url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-    kwargs = {"ssl_cert_reqs": None} if url.startswith("rediss://") else {}
+    url = REDIS_URL.split("?")[0]
+
+    
+    kwargs = {"ssl_cert_reqs": "none"} if url.startswith("rediss://") else {}
     redis_client = redis.from_url(url, **kwargs)
     
     channel_name = f"telemetry_job_{job_id}"
