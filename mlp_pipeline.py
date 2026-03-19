@@ -10,6 +10,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import json
 import base64
+import glob
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app'))
 from app.ml_models import SimpleMLP
@@ -20,9 +21,22 @@ def test_mlp_model(local_model):
     print("\n[Testing Phase] Evaluating model on local tabular dataset...")
     features, labels = [], []
     
-    csv_path = "edge_data/tabular/local_records.csv"
-    if not os.path.exists(csv_path):
-        csv_path = "edge_data/local_records.csv"
+    # Inside test_mlp_model AND train_mlp_model:
+    base_path = os.environ.get("EDGE_DATA_PATH", "edge_data")
+    
+    # First, look for any .csv file inside a 'tabular' subfolder
+    csv_files = glob.glob(os.path.join(base_path, "tabular", "*.csv"))
+    
+    if not csv_files:
+        # If not found, look for ANY .csv file directly in the folder they selected!
+        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
+        
+    if not csv_files:
+        print(f"❌ Error: No CSV data found in {base_path}")
+        return 0.0 # (Or sys.exit(1) for the train function)
+        
+    csv_path = csv_files[0] # Automatically grab the first CSV it finds!
+    print(f"📁 Loading physical tabular data from {csv_path}...")
         
     try:
         with open(csv_path, "r") as f:
@@ -61,10 +75,23 @@ def train_mlp_model(local_model, job_id, headers):
     print("\n--- Starting Local MLP Training Phase ---")
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(local_model.parameters(), lr=0.01)
+
+    # Inside test_mlp_model AND train_mlp_model:
+    base_path = os.environ.get("EDGE_DATA_PATH", "edge_data")
     
-    csv_path = "edge_data/tabular/local_records.csv"
-    if not os.path.exists(csv_path):
-        csv_path = "edge_data/local_records.csv"
+    # First, look for any .csv file inside a 'tabular' subfolder
+    csv_files = glob.glob(os.path.join(base_path, "tabular", "*.csv"))
+    
+    if not csv_files:
+        # If not found, look for ANY .csv file directly in the folder they selected!
+        csv_files = glob.glob(os.path.join(base_path, "*.csv"))
+        
+    if not csv_files:
+        print(f"❌ Error: No CSV data found in {base_path}")
+        return 0.0 # (Or sys.exit(1) for the train function)
+        
+    csv_path = csv_files[0] # Automatically grab the first CSV it finds!
+    print(f"📁 Loading physical tabular data from {csv_path}...")
         
     print(f"📁 Loading physical tabular data from {csv_path}...")
     features, labels = [], []

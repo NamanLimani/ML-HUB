@@ -24,9 +24,11 @@ def test_cnn_model(local_model):
         transforms.ToTensor()
     ])
 
-    img_path = "edge_data/images"
+    # Inside test_cnn_model AND train_cnn_model:
+    base_path = os.environ.get("EDGE_DATA_PATH", "edge_data")
+    img_path = os.path.join(base_path, "images")
     if not os.path.exists(img_path):
-        img_path = "edge_data"
+        img_path = base_path
 
     try:
         dataset = datasets.ImageFolder(root=img_path , transform=transform)
@@ -59,9 +61,11 @@ def train_cnn_model(local_model , job_id , headers):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(local_model.parameters(), lr=0.01)
     
-    img_path = "edge_data/images"
+    # Inside test_cnn_model AND train_cnn_model:
+    base_path = os.environ.get("EDGE_DATA_PATH", "edge_data")
+    img_path = os.path.join(base_path, "images")
     if not os.path.exists(img_path):
-        img_path = "edge_data"
+        img_path = base_path
         
     print(f"📁 Loading physical image data from {img_path}...")
     transform = transforms.Compose([
