@@ -1,4 +1,5 @@
 import subprocess
+import os
 from fastapi import FastAPI , HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -6,10 +7,9 @@ from fastapi.responses import StreamingResponse
 
 app = FastAPI()
 
-# Allow the local React app to communicate with this server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = ['*'], # In production, restrict this to localhost:5174
+    allow_origins = ['*'], 
     allow_credentials = True,
     allow_methods = ['*'],
     allow_headers = ['*']
@@ -19,21 +19,22 @@ class TrainingRequest(BaseModel):
     email : str
     password : str
     job_id : int
-    data_path : str  # The absolute path on the user's Mac/PC (e.g., /Users/naman/edge_data)
-    pipeline_type : str # "cnn" or "mlp"
+    data_path : str  
+    pipeline_type : str 
     run_mode : str
 
 @app.post("/start-local-training")
 def start_local_training(req : TrainingRequest):
-    """
-    Receives credentials and file paths from the UI, constructs the Docker command,
-    and runs it in the background using the secure Environment Variables.
-    """
     script_name = "cnn_pipeline.py" if req.pipeline_type.lower() == 'cnn' else "mlp_pipeline.py"
 
-    # Construct the Docker wormhole command
+    # --- MAC DOCKER PATH FIX ---
+    # Apple's sandbox hides the Docker path, so we find it manually.
+    docker_bin = "/opt/homebrew/bin/docker" if os.path.exists("/opt/homebrew/bin/docker") else "/usr/local/bin/docker"
+    if not os.path.exists(docker_bin):
+        docker_bin = "docker" # Fallback just in case
+
     docker_command = [
-        "docker" , "run" , "--rm",
+        docker_bin , "run" , "--rm",
         "-v" , f"{req.data_path}:/workspace/edge_data", 
         "-e" , f"HUB_EMAIL={req.email}", 
         "-e" , f"HUB_PASSWORD={req.password}",
@@ -49,19 +50,15 @@ def start_local_training(req : TrainingRequest):
     def log_generator():
         yield "Initializing Local Intelligence Engine ... \n"
         try :
-            # Run the Docker container
-            # Note: In a fully fleshed app, we would stream this output back to the React UI via WebSockets.
-            # For now, it will print to the terminal running this edge_server.
             process = subprocess.Popen(
                 docker_command ,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1, # Line buffered
+                bufsize=1,
                 universal_newlines=True
             )
 
-            # Yield each line as soon as PyTorch prints it
             for line in iter(process.stdout.readline, ''):
                 yield line
 
@@ -80,5 +77,4 @@ def start_local_training(req : TrainingRequest):
     
 if __name__ == '__main__':
     import uvicorn
-    # Notice we run this on port 8001 so it doesn't conflict with the main Hub on 8000!
     uvicorn.run(app , host="127.0.0.1" , port=8001)
