@@ -2,7 +2,6 @@ import os
 import io
 import sys
 import requests
-import grpc
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,28 +12,18 @@ import json
 import base64
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app'))
-import app.federated_pb2 as federated_pb2
-import app.federated_pb2_grpc as federated_pb2_grpc
 from app.ml_models import SimpleCNN
 
-# HUB_URL = "http://host.docker.internal:8000"
-# GRPC_URL = "host.docker.internal:50051"
-
-# --- NEW CLOUD URLS ---
 HUB_URL = "https://numerous-coyote-naman-limani-8961fadf.koyeb.app"
-GRPC_URL = "numerous-coyote-naman-limani-8961fadf.koyeb.app:443"
 
-# --- 1. THE TEST/EVALUATION FUNCTION ---
 def test_cnn_model(local_model):
     print("\n[Testing Phase] Evaluating model on local image dataset")
-
     transform = transforms.Compose([
         transforms.Grayscale(num_output_channels=1),
         transforms.Resize((28 , 28)),
         transforms.ToTensor()
     ])
 
-    # --- FIX 1: SMART PATH DETECTION ---
     img_path = "edge_data/images"
     if not os.path.exists(img_path):
         img_path = "edge_data"
@@ -50,7 +39,7 @@ def test_cnn_model(local_model):
     correct = 0 
     total = 0
 
-    with torch.no_grad(): # Turn off gradients to save memory
+    with torch.no_grad():
         for data , target in dataloader:
             outputs = local_model(data)
             _ , predicted = torch.max(outputs.data , 1)
@@ -63,17 +52,13 @@ def test_cnn_model(local_model):
     else :
         print("⚠️ No images found for test")
         accuracy = 0.0
-    
     return accuracy
-    
 
-# --- 2. THE TRAINING FUNCTION ---
 def train_cnn_model(local_model , job_id , headers):
     print("\n--- Starting Local CNN Training Phase ---")
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(local_model.parameters(), lr=0.01)
     
-    # --- FIX 1: SMART PATH DETECTION ---
     img_path = "edge_data/images"
     if not os.path.exists(img_path):
         img_path = "edge_data"
@@ -108,7 +93,6 @@ def train_cnn_model(local_model , job_id , headers):
         avg_loss = total_loss / len(dataloader)
         print(f" -> Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
 
-        # --- SEND TELEMETRY TO HUB ---
         try :
             payload = {"round" : epoch + 1 , "loss" : avg_loss}
             requests.post(f"{HUB_URL}/training-jobs/{job_id}/telemetry" , json=payload , headers=headers)
@@ -118,7 +102,6 @@ def train_cnn_model(local_model , job_id , headers):
     print("✅ Local Training Completed! CNN weights updated.")
     return local_model
 
-# --- 3. THE INTERACTIVE CLI RUNNER ---
 def run_cnn_pipeline():
     print("\n" + "="*45)
     print(" 🚀 FEDERHUB EDGE NODE CLIENT (CNN) ")
@@ -130,10 +113,9 @@ def run_cnn_pipeline():
         job_id_str = os.environ.get("HUB_JOB_ID")
         
         if not email or not password or not job_id_str:
-            print("❌ UI Error: Missing credentials. If you used browser autofill, please type them manually.")
+            print("❌ UI Error: Missing credentials.")
             sys.exit(1)
     else:
-        # Fallback for manual Terminal running
         email = input("👤 Enter your Client Email: ")
         password = getpass.getpass("🔑 Enter your Password: ")
         job_id_str = input("🎯 Enter the Job ID to join: ")
@@ -141,7 +123,7 @@ def run_cnn_pipeline():
     try:
         job_id = int(job_id_str)
     except ValueError:
-        print("❌ Invalid Job ID. Must be a number.")
+        print("❌ Invalid Job ID.")
         sys.exit(1)
 
     print(f"\nTargeting Hub: {HUB_URL}")
@@ -159,20 +141,12 @@ def run_cnn_pipeline():
     headers = {"Authorization": f"Bearer {token}"}
     print("✅ Successfully authenticated. JWT obtained.")
 
-    # --- FIX 2: FORCE INTEGER NODE ID ---
     try:
         payload = token.split('.')[1]
         payload += '=' * (-len(payload) % 4)
-        decoded_payload = base64.b64decode(payload)
-        token_data = json.loads(decoded_payload)
-        
-        sub_val = token_data.get("sub")
-        if sub_val and str(sub_val).isdigit():
-            node_id = int(sub_val)
-        else:
-            node_id = abs(hash(email)) % 10000
-    except Exception as e:
-        print(f"⚠️ Could not parse token for Node ID, defaulting to 999: {e}")
+        token_data = json.loads(base64.b64decode(payload))
+        node_id = int(token_data.get("sub")) if token_data.get("sub") and str(token_data.get("sub")).isdigit() else abs(hash(email)) % 10000
+    except:
         node_id = 999
     
     print(f"🔍 Assigned Edge Node ID: {node_id}")
@@ -180,36 +154,25 @@ def run_cnn_pipeline():
     # 2. Verify Blueprint
     print(f"\n[2/6] Fetching Blueprint for JOB ID: {job_id}")
     job_response = requests.get(f"{HUB_URL}/training-jobs/{job_id}", headers=headers)
-    
     if job_response.status_code != 200:
         print(f"❌ Failed to fetch job: {job_response.text}")
         sys.exit(1)
         
     template = job_response.json().get("model_template")
     if "CNN" not in template.upper():
-        print(f"❌ Error: This is a CNN pipeline, but the Hub requires {template}.")
+        print(f"❌ Error: Hub requires {template}.")
         sys.exit(1)
     print(f"✅ Blueprint verified. Model architecture: {template}")
 
-    # 3. gRPC Download (SECURE CLOUD CONNECTION)
-    print(f"\n[3/6] Streaming global CNN model from {GRPC_URL}...")
-    credentials = grpc.ssl_channel_credentials()
-    channel = grpc.secure_channel(GRPC_URL, credentials)
-    
-    stub = federated_pb2_grpc.ModelTransferStub(channel)
-    file_bytes = io.BytesIO()
-    
-    try:
-        request = federated_pb2.DownloadRequest(job_id=job_id)
-        response_stream = stub.DownloadModel(request)
-        for chunk in response_stream:
-            file_bytes.write(chunk.chunk_data)
-        print("✅ gRPC stream complete. Model downloaded.")
-    except grpc.RpcError as e:
-        print(f"❌ gRPC Download failed: {e.details()}")
+    # 3. HTTP REST Download (Bypasses Koyeb Firewall)
+    print(f"\n[3/6] Downloading global CNN model from {HUB_URL}...")
+    model_response = requests.get(f"{HUB_URL}/training-jobs/{job_id}/model", headers=headers)
+    if model_response.status_code != 200:
+        print(f"❌ Failed to download model: {model_response.text}")
         sys.exit(1)
         
-    file_bytes.seek(0)
+    file_bytes = io.BytesIO(model_response.content)
+    print("✅ HTTP stream complete. Model downloaded.")
 
     # 4. Local Training or Testing
     print("\n[4/6] Loading weights into PyTorch engine...")
@@ -218,43 +181,31 @@ def run_cnn_pipeline():
     local_model.load_state_dict(global_state_dict)
     print("✅ Global weights synchronized!")
     
-    # --- FIX 3: TRAIN VS TEST MODE LOGIC ---
     run_mode = os.environ.get("HUB_RUN_MODE", "train")
-    
     if run_mode == "test":
         print("\n[INFO] Mode set to TEST ONLY. Skipping training and upload.")
         test_cnn_model(local_model)
-        print("\n✅ Local Evaluation Complete.")
-        return # Terminate early!
+        return
     
-    # Otherwise, continue with standard training
     updated_local_model = train_cnn_model(local_model, job_id, headers)
     test_cnn_model(updated_local_model)
 
-    # 5. gRPC Upload
-    print("\n[5/6] Streaming smarter CNN weights back via gRPC...")
+    # 5. HTTP REST Upload (Bypasses Koyeb Firewall)
+    print("\n[5/6] Uploading smarter CNN weights back via HTTP...")
     upload_buffer = io.BytesIO()
     torch.save(updated_local_model.state_dict(), upload_buffer)
     upload_buffer.seek(0)
     
-    def generate_chunks():
-        chunk_size = 64 * 1024
-        while True:
-            piece = upload_buffer.read(chunk_size)
-            if not piece:
-                break
-            yield federated_pb2.ModelChunk(job_id=job_id, node_id=int(node_id), chunk_data=piece)
-            
+    files = {"file": (f"job_{job_id}_node_{node_id}.pt", upload_buffer, "application/octet-stream")}
+    
     try:
-        upload_response = stub.UploadModel(generate_chunks())
-        if upload_response.success:
-            print(f"✅ Success! Hub responded: {upload_response.message}")
+        upload_response = requests.post(f"{HUB_URL}/training-jobs/{job_id}/upload", headers=headers, files=files)
+        if upload_response.status_code == 200:
+            print(f"✅ Success! Hub responded: {upload_response.json().get('message')}")
         else:
-            print(f"❌ Hub rejected the upload: {upload_response.message}")
-    except grpc.RpcError as e:
-        print(f"❌ gRPC Upload failed: {e.details()}")
-    finally:
-        channel.close()
+            print(f"❌ Hub rejected the upload: {upload_response.text}")
+    except Exception as e:
+        print(f"❌ HTTP Upload failed: {e}")
 
 if __name__ == "__main__":
     run_cnn_pipeline()
