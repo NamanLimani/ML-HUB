@@ -8,7 +8,7 @@ Instead of uploading sensitive datasets to the cloud, the Hub sends the neural n
 ---
 
 ## Live Demo & Links
-* **Admin Dashboard (Web):** `https://ml-hub-hard-naman-limanis-projects.vercel.app/`
+* **Admin Dashboard (Web):** `https://ml-hub-hard.vercel.app`
 * **Edge Node Desktop App (macOS):** `https://github.com/NamanLimani/ML-HUB/releases/download/dmg/MLHub.Edge-1.0.0-arm64.dmg`
 
 > **IMPORTANT CLOUD DISCLAIMER:** The central backend API is hosted on Koyeb's free tier. If the platform has not been used for a while, the Koyeb instance will "go to sleep." **If the Admin Dashboard fails to fetch data, simply log into Koyeb and click "Redeploy" to wake the server up.**
